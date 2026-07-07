@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String                @id @default(cuid())
+  name                String
+  email               String                @unique
+  passwordHash        String
+  emailVerified       DateTime?
+  createdAt           DateTime              @default(now())
+
+  verificationTokens  VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  activities          Activity[]
+  essayDrafts         EssayDraft[]
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// One row per meaningful, countable action — powers the progress dashboard.
+model Activity {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String   // "case_read" | "term_learned" | "quiz_completed"
+  targetTitle   String
+  targetSlug    String?
+  resultCorrect Int?
+  resultTotal   Int?
+  createdAt     DateTime @default(now())
+}
+
+// Autosaved essay drafts, one per user per practice exercise.
+model EssayDraft {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceSlug String
+  content      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, practiceSlug])
+}
+
+// ==========================================
+// CONTENT MODELS
+// ==========================================
+
+model Case {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  citation     String
+  court        String
+  year         String
+  areaOfLaw    String
+  facts        String
+  held         String
+  principle    String
+  fullText     String?  // Tam metin
+  sourceUrl    String?  // Resmi kaynak linki
+  relatedTerms String   // JSON stringified array of term slugs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Term {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  term         String
+  areaOfLaw    String
+  definition         String
+  usage              String
+  englishTranslation String?
+  latinEquivalent    String?
+  relatedTerms       String   // JSON stringified array of term slugs
+  relatedCase        String?  // Optional case slug
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Practice {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  type         String   // "essay" or "quiz"
+  title        String
+  areaOfLaw    String
+  prompt       String?
+  instructions String?
+  description  String?
+  structure    String?  // JSON stringified array for essay
+  questions    String?  // JSON stringified array for quiz
+  relatedCase  String?
+  relatedTerms String?  // JSON stringified array
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model YargitayDecision {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  esasNo       String
+  kararNo      String
+  court        String   // Daire (e.g. 9. Hukuk Dairesi)
+  date         String   // Tarih
+  areaOfLaw    String   // Hukuk Dalı (e.g. İş Hukuku)
+  summary      String   // Karar Özeti
+  principle    String   // Hüküm / Emsal
+  fullText     String?  // Kararın tam metni
+  sourceUrl    String?  // Resmi kaynak linki
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ==========================================
+// COMMUNITY & ARTICLES MODELS
+// ==========================================
+
+model Article {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  content      String
+  authorName   String   // Şimdilik anonim/herkese açık olduğu için String olarak alıyoruz, User'a bağlamıyoruz
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ForumThread {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  content      String
+  authorName   String
+  category     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  replies      ForumReply[]
+}
+
+model ForumReply {
+  id           String   @id @default(cuid())
+  content      String
+  authorName   String
+  threadId     String
+  thread       ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
